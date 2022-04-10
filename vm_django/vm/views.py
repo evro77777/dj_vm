@@ -10,7 +10,7 @@ from django.shortcuts import redirect
 from .forms import *
 from .models import *
 from .utils import *
-
+import re
 
 def index(request):
     context = {
@@ -55,51 +55,46 @@ class LoginUser(LoginView):
     def get_success_url(self):
         return reverse_lazy('form')
 
+def create_form(request):
+    form = QueryForm(request.POST)
+    if form.is_valid():
+        params = {
+                'vc2-1c-1gb':(1, 1, 25),
+                'vc2-1c-2gb':(2,1, 55),
+                'vc2-2c-4gb': (4, 2, 80),
+                'vhf-2c-4gb': (4, 2, 128),
+                'vdc-2c-8gb': (8, 2, 110),
+                'vc2-4c-8gb': (8, 4, 160)
+
+            }
+        key = form.cleaned_data['choice_field']
+        ram, cpu_cores, ssd = params.get(key)
+        try:
+            vultr_api(plan=key, name_vm=form.cleaned_data['name_vm'])
+            addr = get_ip_address(plan=key, name_vm=form.cleaned_data['name_vm'])
+            form.cleaned_data.pop('choice_field')
+            QueryVM.objects.create(user=request.user, ram=ram, cpu_cores=cpu_cores, ssd=ssd, **form.cleaned_data)
+            return addr
+        except:
+            form.add_error(None, 'Error')
+
+        return form
 
 def addquery(request):
-    if not request.user.is_authenticated:
+    if request.user.is_authenticated:
+        result = create_form(request) if request.method == 'POST' else QueryForm()
+    else: 
         return redirect('home')
-    else:
-        if request.method == 'POST':
-            form = QueryForm(request.POST)
-            if form.is_valid():
-                try:
-                    if form.cleaned_data['choice_field'] == 'vc2-1c-1gb':
-                        vultr_api(plan='vc2-1c-1gb', name_vm=form.cleaned_data['name_vm'])
-                        form.cleaned_data.pop('choice_field')
-                        QueryVM.objects.create(user=request.user, ram=1, cpu_cores=1, ssd=25, **form.cleaned_data)
 
-                    elif form.cleaned_data['choice_field'] == 'vc2-1c-2gb':
-                        vultr_api(plan='vc2-1c-2gb', name_vm=form.cleaned_data['name_vm'])
-                        form.cleaned_data.pop('choice_field')
-                        QueryVM.objects.create(user=request.user, ram=2, cpu_cores=1, ssd=55, **form.cleaned_data)
+    if re.match(r'([0-9]{1,3}[\.]){3}[0-9]{1,3}', str(result)):
+        return render(request, 'vm/result.html', {'address': result})
 
-                    elif form.cleaned_data['choice_field'] == 'vc2-2c-4gb':
-                        vultr_api(plan='vc2-2c-4gb', name_vm=form.cleaned_data['name_vm'])
-                        form.cleaned_data.pop('choice_field')
-                        QueryVM.objects.create(user=request.user, ram=4, cpu_cores=2, ssd=80, **form.cleaned_data)
+    return render(request, 'vm/form.html', {'form': result})
 
-                    elif form.cleaned_data['choice_field'] == 'vhf-2c-4gb':
-                        vultr_api(plan='vhf-2c-4gb', name_vm=form.cleaned_data['name_vm'])
-                        form.cleaned_data.pop('choice_field')
-                        QueryVM.objects.create(user=request.user, ram=4, cpu_cores=2, ssd=128, **form.cleaned_data)
 
-                    elif form.cleaned_data['choice_field'] == 'vdc-2c-8gb':
-                        vultr_api(plan='vdc-2c-8gb', name_vm=form.cleaned_data['name_vm'])
-                        form.cleaned_data.pop('choice_field')
-                        QueryVM.objects.create(user=request.user, ram=8, cpu_cores=2, ssd=110, **form.cleaned_data)
 
-                    elif form.cleaned_data['choice_field'] == 'vc2-4c-8gb':
-                        vultr_api(plan='vc2-4c-8gb', name_vm=form.cleaned_data['name_vm'])
-                        form.cleaned_data.pop('choice_field')
-                        QueryVM.objects.create(user=request.user, ram=8, cpu_cores=4, ssd=160, **form.cleaned_data)
-                    addr = get_ip_address(plan='vc2-1c-1gb', name_vm=form.cleaned_data['name_vm'])
-                    return render(request, 'vm/result.html', {'address': addr})
-                except:
-                    form.add_error(None, 'Error')
-        else:
-            form = QueryForm()
-        return render(request, 'vm/form.html', {'form': form})
+
+
 
 
 def logout_user(request):
