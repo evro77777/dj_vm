@@ -1,4 +1,7 @@
 import requests
+from django.conf import settings
+
+
 
 def vultr_api(plan, name_vm):
     json = {
@@ -9,7 +12,7 @@ def vultr_api(plan, name_vm):
     }
 
     requests.post('https://api.vultr.com/v2/instances', json=json, headers={
-        "Authorization": "Bearer insert_your_token"
+        "Authorization": f"Bearer {settings.API_KEY_VULTR}"
     })
 
 
@@ -17,7 +20,7 @@ def get_ip_address(plan, name_vm):
     response = requests.get(
         'https://api.vultr.com/v2/instances',
         headers={
-            "Authorization": "Bearer insert_your_token"
+            "Authorization": f"Bearer {settings.API_KEY_VULTR}"
         }
     )
     id_inst = None
@@ -29,7 +32,7 @@ def get_ip_address(plan, name_vm):
         response2 = requests.get(
             f'https://api.vultr.com/v2/instances/{id_inst}',
             headers={
-                "Authorization": "Bearer insert_your_token"
+                "Authorization": f"Bearer {settings.API_KEY_VULTR}"
             }
         )
         ip_addr = response2.json()['instance']['main_ip']
